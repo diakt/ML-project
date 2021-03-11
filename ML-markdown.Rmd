@@ -1,0 +1,124 @@
+---
+title: "ML-markdown"
+author: "diakt"
+date: "3/9/2021"
+output: html_document
+---
+# Description of Goals
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+# "Executive" conclusion (what a pretentious name)
+
+I built a random forest model on the data, after pruning down to 53 relevant features through removing NA data and irrelevant, misleading timestamp data. The main reason I used an ootb random forest model was the base bagging that removed the need for cross vaalidation to prevent over-fitting. I did prune the training m2m comparisons to five, which was about the only way I could employ a random forest on this absolute dinosaur of a machine I have. My expected OOSE was around 0.68%, which was validated by my observed prediction accuracy. I detail my choices pretty step-by-step, but I nixed a lot of features to end up with 53 ones for the model. I ended up with around 99 low accuracy on 99 kappa.
+
+# Title
+```{r dingo}
+library(dplyr)
+library(caret)
+library(stringr)
+library(parallel)
+library(doParallel)
+```
+
+
+#Data import
+
+I import the data, and go 70/30 on a training and validation split. Standard caret things. 
+
+```{r dingo2}
+data <- tibble::as_tibble(read.csv("pml-training.csv"))
+
+inTrain <- createDataPartition(data$classe, p=.7, list=FALSE)
+training <- data[inTrain, ]
+validation <- data[-inTrain, ]
+
+#maybe elim down to all that have no missing vals
+# function(x) sum(is.na(x))/nrow(data)
+#
+
+
+```
+
+# Data analysis for inclusion
+Not trying to feed garbage in. I list my adaptations:
+
+1) Change all "character" quantitatives to numerics to recognize na's later
+2) Eliminates all columns with less than 99% real values, though most NA columns have less than 2% data
+3) Eliminate first seven columns that deal with time stamps (can massively bias model and I didn't want to take a chance on this being nonreproducible on the quiz)
+
+I am left with 53 features.
+
+
+```{r dingo3, cache=TRUE}
+
+#removes any non-quantitative character vars
+quant2Num <- function(x) {class(x) <- "numeric";x }
+dingo <- training %>% mutate_if(sapply(., is.character) & !(str_detect(colnames(.), "user_name|classe|cvtd_timestamp|new_window")), quant2Num) %>% select(which(colMeans(!is.na(.)) > 0.99)) %>% select(!(1:7))
+
+
+
+
+```
+
+
+# Model training after setting up parallel cores
+
+```{r dingo4, cache=TRUE}
+#testing phase
+set.seed(42069)
+
+#parallel setup
+cluster <- makeCluster(detectCores() - 2) #call me a baby, this thing is ancient, wanted to be safe
+registerDoParallel(cluster)
+fitRepetitions <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
+
+#fitting model
+model <- train(classe~., data=dingo, method="rf", trainControl=fitRepetitions)
+
+# 17 minutes. ending core regulation
+stopCluster(cluster)
+
+#Analysis
+model$finalModel[5]
+
+modelFactors <- varImp(model)
+plot(modelFactors)
+
+
+
+
+```
+
+Took a decently long time, around 17 minutes.
+
+# Predictions on validation set
+
+
+```{r dingo5, echo=FALSE}
+#Now we predict our validation data
+
+prediction <- predict(model, validation)
+confusionMatrix(prediction, as.factor(validation$classe))$table
+confusionMatrix(prediction, as.factor(validation$classe))$overall
+
+```
+
+#Ending conclusions 
+
+I was pretty happy with the outcome. Onto the testing set. Wish me luck.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

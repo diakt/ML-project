@@ -11,7 +11,6 @@ The goal of your project is to predict the manner in which they did the exercise
 
 I built a random forest model on the data, after pruning down to 53 relevant features through removing NA data and irrelevant, misleading timestamp data. The main reason I used an ootb random forest model was the base bagging that removed the need for cross vaalidation to prevent over-fitting. I did prune the training m2m comparisons to five, which was about the only way I could employ a random forest on this absolute dinosaur of a machine I have. My expected OOSE was around 0.68%, which was validated by my observed prediction accuracy. I detail my choices pretty step-by-step, but I nixed a lot of features to end up with 53 ones for the model. I ended up with around 99 low accuracy on 99 kappa.
 
-# Title
 ```{r dingo}
 library(dplyr)
 library(caret)
@@ -21,7 +20,7 @@ library(doParallel)
 ```
 
 
-#Data import
+# Data import
 
 I import the data, and go 70/30 on a training and validation split. Standard caret things. 
 
@@ -49,11 +48,11 @@ Not trying to feed garbage in. I list my adaptations:
 I am left with 53 features.
 
 
-```{r dingo3, cache=TRUE}
+```{r dingo3}
 
 #removes any non-quantitative character vars
 quant2Num <- function(x) {class(x) <- "numeric";x }
-dingo <- training %>% mutate_if(sapply(., is.character) & !(str_detect(colnames(.), "user_name|classe|cvtd_timestamp|new_window")), quant2Num) %>% select(which(colMeans(!is.na(.)) > 0.99)) %>% select(!(1:7))
+suppressWarnings(final <- training %>% mutate_if(sapply(., is.character) & !(str_detect(colnames(.), "user_name|classe|cvtd_timestamp|new_window")), quant2Num) %>% select(which(colMeans(!is.na(.)) > 0.99)) %>% select(!(1:7)))
 
 
 
@@ -73,7 +72,7 @@ registerDoParallel(cluster)
 fitRepetitions <- trainControl(method = "cv", number = 5, allowParallel = TRUE)
 
 #fitting model
-model <- train(classe~., data=dingo, method="rf", trainControl=fitRepetitions)
+model <- train(classe~., data=final, method="rf", trainControl=fitRepetitions)
 
 # 17 minutes. ending core regulation
 stopCluster(cluster)
@@ -94,7 +93,7 @@ Took a decently long time, around 17 minutes.
 # Predictions on validation set
 
 
-```{r dingo5, echo=FALSE}
+```{r dingo5}
 #Now we predict our validation data
 
 prediction <- predict(model, validation)
@@ -103,7 +102,7 @@ confusionMatrix(prediction, as.factor(validation$classe))$overall
 
 ```
 
-#Ending conclusions 
+# Ending conclusions 
 
 I was pretty happy with the outcome. Onto the testing set. Wish me luck.
 
